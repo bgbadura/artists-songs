@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🔥 Artists & Songs 🔥</title>
+
+<!--                                CSS-->
+<style>
+    body {
+        background-color: black;
+        font-family: "Arial Rounded MT Bold";
+        color: #ea4d0e;
+    }
+    .split {
+        width: 50%;
+        float: left;
+    }
+    .left {
+        text-align: center;
+        padding-top: 100px;
+    }
+    .right {
+        text-align: center;
+        padding-top: 100px;
+    }
+    .centered {
+        text-align: center;
+        padding-top: 100px;
+    }
+</style>
+
+</head>
+<!--                            HTML-->
+
+<body>
+
+<div class = "centered">
+    <img src="ArtistsAndSongs.gif" alt="ikonka" width="535" height="103">
+</div>
+
+<div class = "split left">
+    <h2> Songs in database</h2>
+    <table id="songTable" align = "center" border="2">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Release Date</th>
+            <th>Duration</th>
+            <th>Author(s)</th>
+        </tr>
+        </thead>
+        <tbody id="songTableBody">
+        </tbody>
+    </table>
+
+    <script>
+        function loadSongs(url = '/data/songs') {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('response not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const tableBody = document.getElementById('songTableBody');
+                    tableBody.innerHTML = '';
+
+                    data.forEach(song => {
+                        const row = document.createElement('tr');
+
+                        const idCell = document.createElement('td');
+                        idCell.textContent = song.id;
+
+                        const titleCell = document.createElement('td');
+                        titleCell.textContent = song.title;
+
+                        const dateCell = document.createElement('td');
+                        dateCell.textContent = song.releaseDate;
+
+                        const lengthCell = document.createElement('td');
+                        if (song.durationSec < 10) {
+                            song.durationSec = "0"+song.durationSec;
+                        }
+                        lengthCell.textContent = `${song.durationMin}:${song.durationSec}`;
+
+                        const artistsCell = document.createElement('td');
+                        if (song.artists && song.artists.length > 0) {
+                            artistsCell.innerHTML = song.artists
+                                .map(artist => `- ${artist.nickname}
+                                (author ID: ${artist.id})`)
+                                .join('<br>');
+                        } else {
+                            artistsCell.textContent = 'None';
+                        }
+
+                        row.appendChild(idCell);
+                        row.appendChild(titleCell);
+                        row.appendChild(dateCell);
+                        row.appendChild(lengthCell);
+                        row.appendChild(artistsCell);
+
+                        tableBody.appendChild(row);
+                    });
+                });
+        }
+        loadSongs();
+    </script>
+
+    <br>
+    <br>
+    <h3>Sort Songs</h3>
+    <p>Column to sort by:</p>
+    <select id="songSortBy">
+        <option value="id">ID</option>
+        <option value="title">Title</option>
+        <option value="releaseDate">Release Date</option>
+    </select>
+
+    <select id="songSortOrder">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+    </select>
+
+    <button onclick="applySongSort()">Sort Songs</button>
+
+    <script>
+        function applySongSort() {
+            const sortBy = document.getElementById('songSortBy').value;
+            const order = document.getElementById('songSortOrder').value;
+            const url = `/data/songs/sorted?sortBy=${sortBy}&order=${order}`;
+            loadSongs(url);
+        }
+    </script>
+
+    <!--                            ADD SONG-->
+    <br>
+    <br>
+    <h3>Add or Edit Song</h3>
+    <form id="addSongForm">
+        <label>Title: <input type="text" id="songTitle"></label><br>
+        <label>Release Date: <input type="date" id="releaseDate"></label><br>
+        <label>Duration (minutes): <input type="number" id="durationMin"></label><br>
+        <label>Duration (seconds): <input type="number" id="durationSec"></label><br>
+        <button type="submit">Add Song</button>
+        <br>
+
+        <label id="editSong">Select Song to edit:</label>
+        <select id="selectSongIdToEdit">
+            <option value="">song id</option>
+        </select>
+        <button type="submit">Edit</button>
+    </form>
+
+    <script>
+        document.getElementById('addSongForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const selectedId = document.getElementById('selectSongIdToEdit').value;
+            const newSongData = {
+                title: document.getElementById('songTitle').value,
+                releaseDate: document.getElementById('releaseDate').value,
+                durationMin: parseInt(document.getElementById('durationMin').value),
+                durationSec: parseInt(document.getElementById('durationSec').value)
+            };
+
+            Object.keys(newSongData).forEach(key => {
+                const value = newSongData[key];
+                if (value === '' || value === null) {
+                    delete newSongData[key];
+                } else if (key === 'durationMin' || key === 'durationSec') {
+                    newSongData[key] = parseInt(value);
+                }
+            });
+
+            if (selectedId) {
+                if (newSongData.durationMin < 0 || newSongData.durationSec < 0) {
+                    alert("Song cannot be of negative duration!");
+                    return;
+                }
+
+                if ((newSongData.durationMin === 0 && newSongData.durationSec === 0)) {
+                    alert("Song duration must be positive!");
+                    return;
+                }
+
+                fetch(`/data/songs/${selectedId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Fetching existing data failed');
+                        }
+                        return response.json();
+                    })
+                    .then(existingSong => {
+                        const mergedData = {
+                            title: newSongData.title ?? existingSong.title,
+                            releaseDate: newSongData.releaseDate ?? existingSong.releaseDate,
+                            durationMin: newSongData.durationMin ?? existingSong.durationMin,
+                            durationSec: newSongData.durationSec ?? existingSong.durationSec
+                        };
+
+                        return fetch(`/data/songs/${selectedId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(mergedData)
+                        });
+                    })
+                    .then(response => response.json())
+                    .then(() => {
+                        loadSongs();
+                        loadSongsForDelete();
+                    })
+                    .catch(err => console.error(err));
+            } else {
+                if (newSongData.durationMin < 0 || newSongData.durationSec < 0) {
+                    alert("Song cannot be of negative duration!");
+                    return;
+                }
+
+                if ((newSongData.durationMin === 0 && newSongData.durationSec === 0)) {
+                    alert("Song duration must be positive!");
+                    return;
+                }
+
+                const requiredFields = ['title', 'releaseDate', 'durationMin', 'durationSec'];
+                const missingField = requiredFields.find(key => newSongData[key] == null);
+
+                if (missingField) {
+                    alert(`Field "${missingField}" is required!`);
+                    return;
+                }
+
+                if (
+                    newSongData.title == null ||
+                    newSongData.releaseDate == null ||
+                    newSongData.durationMin == null ||
+                    newSongData.durationSec == null
+                ) {
+                    alert("All fields are required to add a new song!");
+                    return;
+                }
+
+                fetch('/data/songs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newSongData)
+                })
+                    .then(response => response.json())
+                    .then(() => {
+                        loadSongs();
+                        loadSongsForDelete();
+                    })
+                    .catch(err => console.error(err));
+            }
+
+            document.getElementById("addSongForm").reset();
+            document.getElementById("selectSongIdToEdit").value = '';
+        });
+    </script>
+
+
+    <!--                            DELETE SONG-->
+    <br>
+    <br>
+    <h3>Delete Song</h3>
+    <label for="songSelect">Select Song to delete:</label>
+    <select id="songSelect">
+        <option value="">song id</option>
+    </select>
+    <button onclick="deleteSelectedSong();">Delete</button>
+
+    <script>
+        function loadSongsForDelete() {
+            fetch('/data/songs')
+                .then(response => response.json())
+                .then(songs => {
+                    const deletionSelect = document.getElementById('songSelect');
+                    const editSelect = document.getElementById('selectSongIdToEdit');
+
+                    deletionSelect.innerHTML = '';
+                    editSelect.innerHTML = '';
+
+                    const placeholderDelete = document.createElement('option');
+                    placeholderDelete.value = '';
+                    placeholderDelete.textContent = 'song id';
+                    deletionSelect.appendChild(placeholderDelete);
+
+                    const placeholderEdit = document.createElement('option');
+                    placeholderEdit.value = '';
+                    placeholderEdit.textContent = 'song id';
+                    editSelect.appendChild(placeholderEdit);
+
+                    songs.forEach(song => {
+                        const deleteOption = document.createElement('option');
+                        deleteOption.value = song.id;
+                        deleteOption.textContent = `${song.id} - ${song.title}`;
+                        deletionSelect.appendChild(deleteOption);
+
+                        const editOption = document.createElement('option');
+                        editOption.value = song.id;
+                        editOption.textContent = `${song.id} - ${song.title}`;
+                        editSelect.appendChild(editOption);
+                    });
+                })
+        }
+        loadSongsForDelete();
+
+        function deleteSelectedSong() {
+            const select = document.getElementById('songSelect');
+            const songId = select.value;
+
+            if (!songId) return;
+
+            fetch(`/data/songs/${songId}`, {
+                method: 'DELETE'
+            })
+                .then(response => {
+                    if (response.ok) {
+                        select.querySelector(`option[value="${songId}"]`).remove();
+                        loadSongs();
+                        loadSongsForDelete();
+                        loadArtists();
+                    }
+                });
+        }
+    </script>
+
+    <br>
+</div>
+
+<div class = "split right">
+    <h2> Artists in database</h2>
+    <table id="artistTable" align ="center" border="2">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nickname</th>
+            <th>Date of birth</th>
+            <th>Song(s)</th>
+        </tr>
+        </thead>
+        <tbody id="artistTableBody">
+        </tbody>
+    </table>
+
+    <script>
+        function loadArtists(url = 'data/artists') {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('response not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const tableBody = document.getElementById('artistTableBody');
+                    tableBody.innerHTML = '';
+
+                    data.forEach(artist => {
+                        const row = document.createElement('tr');
+
+                        const idCell = document.createElement('td');
+                        idCell.textContent = artist.id;
+
+                        const nicknameCell = document.createElement('td');
+                        nicknameCell.textContent = artist.nickname;
+
+                        const dateOfBirthCell = document.createElement('td');
+                        dateOfBirthCell.textContent = artist.dateOfBirth;
+
+                        const songsCell = document.createElement('td');
+                        if (artist.songs && artist.songs.length > 0) {
+                            songsCell.innerHTML = artist.songs
+                                .map(song => `- ${song.title};
+                                duration: ${song.durationMin}:${song.durationSec < 10 ? "0"+song.durationSec : song.durationSec};
+                                release date: ${song.releaseDate};
+                                (song ID: ${song.id})`)
+                                .join('<br>');
+                        } else {
+                            songsCell.textContent = 'None';
+                        }
+
+                        row.appendChild(idCell);
+                        row.appendChild(nicknameCell);
+                        row.appendChild(dateOfBirthCell);
+                        row.appendChild(songsCell);
+
+                        tableBody.appendChild(row);
+                    });
+                });
+        }
+        loadArtists();
+    </script>
+
+    <br>
+    <br>
+    <h3>Sort Artists</h3>
+    <p>Column to sort by:</p>
+    <select id="artistSortBy">
+        <option value="id">ID</option>
+        <option value="nickname">Nickname</option>
+        <option value="dateOfBirth">Date of Birth</option>
+    </select>
+
+    <select id="artistSortOrder">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+    </select>
+
+    <button onclick="applyArtistSort()">Sort Artists</button>
+
+
+    <script>
+        function applyArtistSort() {
+            const sortBy = document.getElementById('artistSortBy').value;
+            const order = document.getElementById('artistSortOrder').value;
+            const url = `/data/artists/sorted?sortBy=${sortBy}&order=${order}`;
+            loadArtists(url);
+        }
+    </script>
+
+    <!--                            ADD ARTIST-->
+    <br>
+    <br>
+    <h3>Add or Edit Artist</h3>
+    <form id="addArtistForm">
+        <label>Nickname: <input type="text" id="artistNickname"></label><br>
+        <label>Date of Birth: <input type="date" id="dateOfBirth"></label><br>
+        <button type="submit">Add Artist</button>
+        <br>
+
+        <label id="editArtist">Select Artist to edit:</label>
+        <select id="selectArtistIdToEdit">
+            <option value="">artist id</option>
+        </select>
+        <button type="submit">Edit</button>
+    </form>
+
+    <script>
+        document.getElementById('addArtistForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const selectedId = document.getElementById('selectArtistIdToEdit').value;
+            const newArtistData = {
+                nickname: document.getElementById('artistNickname').value,
+                dateOfBirth: document.getElementById('dateOfBirth').value,
+            };
+
+            var newArtistBirthDate = new Date(newArtistData.dateOfBirth);
+            var today = Date.now();
+
+            if (newArtistBirthDate > today) {
+                alert('Cant add/edit an Artist that wasnt born yet!');
+                return;
+            }
+
+            Object.keys(newArtistData).forEach(key => {
+                const value = newArtistData[key];
+                if (value === '' || value === null) {
+                    delete newArtistData[key];
+                }
+            });
+
+            if (selectedId) {
+                fetch(`/data/artists/${selectedId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Fetching existing data failed');
+                        }
+                        return response.json();
+                    })
+                    .then(existingArtist => {
+                        const mergedData = {
+                            nickname: newArtistData.nickname ?? existingArtist.nickname,
+                            dateOfBirth: newArtistData.dateOfBirth ?? existingArtist.dateOfBirth
+                        };
+
+                        return fetch(`/data/artists/${selectedId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(mergedData)
+                        });
+                    })
+                    .then(response => response.json())
+                    .then(() => {
+                        loadArtists();
+                        loadArtistsForDelete();
+                    })
+                    .catch(err => console.error(err));
+            } else {
+                const requiredFields = ['nickname', 'dateOfBirth'];
+                const missingField = requiredFields.find(key => newArtistData[key] == null);
+                if (missingField) {
+                    alert(`Field "${missingField}" is required!`);
+                    return;
+                }
+
+                if (
+                    newArtistData.nickname == null ||
+                    newArtistData.dateOfBirth == null
+                ) {
+                    alert("All fields are required to add a new artist!");
+                    return;
+                }
+
+                fetch('/data/artists', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newArtistData)
+                })
+                    .then(response => response.json())
+                    .then(() => {
+                        loadArtists();
+                        loadArtistsForDelete();
+                        // loadSongs();
+                    })
+                    .catch(err => console.error(err));
+            }
+
+
+            document.getElementById("addArtistForm").reset();
+        });
+    </script>
+
+    <!--                                            DELETE ARTIST-->
+    <br>
+    <br>
+    <h3>Delete Artist</h3>
+    <label for="artistSelect">Select Artist to delete:</label>
+    <select id="artistSelect">
+        <option value="">artist id</option>
+    </select>
+    <button onclick="deleteSelectedArtist();">Delete</button>
+
+    <script>
+        function loadArtistsForDelete() {
+            fetch('/data/artists')
+                .then(response => response.json())
+                .then(artists => {
+                    const deletionSelect = document.getElementById('artistSelect');
+                    const editSelect = document.getElementById('selectArtistIdToEdit');
+
+                    deletionSelect.innerHTML = '';
+                    editSelect.innerHTML = '';
+
+                    const placeholderDelete = document.createElement('option');
+                    placeholderDelete.value = '';
+                    placeholderDelete.textContent = 'artist id';
+                    deletionSelect.appendChild(placeholderDelete);
+
+                    const placeholderEdit = document.createElement('option');
+                    placeholderEdit.value = '';
+                    placeholderEdit.textContent = 'artist id';
+                    editSelect.appendChild(placeholderEdit);
+
+                    artists.forEach(artist => {
+                        const deleteOption = document.createElement('option');
+                        deleteOption.value = artist.id;
+                        deleteOption.textContent = `${artist.id} - ${artist.nickname}`;
+                        deletionSelect.appendChild(deleteOption);
+
+                        const editOption = document.createElement('option');
+                        editOption.value = artist.id;
+                        editOption.textContent = `${artist.id} - ${artist.nickname}`;
+                        editSelect.appendChild(editOption);
+                    });
+                })
+        }
+        loadArtistsForDelete();
+
+        function deleteSelectedArtist() {
+            const select = document.getElementById('artistSelect');
+            const artistId = select.value;
+
+            if (!artistId) return;
+
+            fetch(`/data/artists/${artistId}`, {
+                method: 'DELETE'
+            })
+                .then(response => {
+                    if (response.ok) {
+                        select.querySelector(`option[value="${artistId}"]`).remove();
+                        loadArtists();
+                        loadSongs();
+                    }
+                });
+        }
+    </script>
+</div>
+
+</body>
+</html>
